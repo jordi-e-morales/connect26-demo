@@ -1,0 +1,83 @@
+# Dos agentes que se hablan. Nada mas.
+#
+# Este es el hito de la Fase 1. Cuando esto funcione, tienes la FRONTERA:
+# dos procesos separados, con direcciones distintas, cuyo trafico pasa por
+# el kernel. Hasta que eso existe, Cilium y Tetragon no tienen nada que hacer.
+#
+# Para aplicarlo:
+#   kubectl apply -f 01-dos-agentes.yaml
+#
+# Para probar que se hablan:
+#   kubectl exec -n agentes deploy/orquestador -- curl -s http://extractor/
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentes
+
+---
+# El agente extractor: por ahora solo es un servidor web que responde.
+# Mas adelante sera el que corre el modelo en la GPU.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: extractor
+  namespace: agentes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: extractor
+  template:
+    metadata:
+      labels:
+        app: extractor
+        # Esta etiqueta es la que van a usar las politicas de Cilium.
+        # Fijate que NO usamos direcciones IP en ningun lado.
+        rol: agente
+    spec:
+      containers:
+        - name: servidor
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+
+---
+# El servicio le da al extractor un nombre estable dentro del cluster.
+# Por eso el orquestador puede llamarlo como "http://extractor/" sin
+# saber en que maquina esta ni que IP tiene.
+apiVersion: v1
+kind: Service
+metadata:
+  name: extractor
+  namespace: agentes
+spec:
+  selector:
+    app: extractor
+  ports:
+    - port: 80
+      targetPort: 80
+
+---
+# El agente orquestador: por ahora solo es un contenedor con curl adentro,
+# esperando a que le pidamos hacer una llamada.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orquestador
+  namespace: agentes
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orquestador
+  template:
+    metadata:
+      labels:
+        app: orquestador
+        rol: agente
+    spec:
+      containers:
+        - name: cliente
+          image: curlimages/curl:latest
+          command: ["sleep", "infinity"]
