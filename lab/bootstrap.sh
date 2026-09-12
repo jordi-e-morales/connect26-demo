@@ -104,7 +104,31 @@ else
   log "La CLI de Cilium ya estaba instalada"
 fi
 
+# ---------------------------------------------------------------------------
+# 6. CLI de Hubble
+# ---------------------------------------------------------------------------
+# Ojo: 'cilium' y 'hubble' son DOS PROGRAMAS DISTINTOS.
+#   cilium  -> instala y administra la red del cluster
+#   hubble  -> consulta el trafico que Cilium esta viendo
+# Instalar uno no instala el otro. Y hubble es el que te deja VER los bloqueos,
+# que es la mitad de la demo.
+if ! command -v hubble >/dev/null 2>&1; then
+  log "Instalando la CLI de Hubble"
+  HVER="$(curl -s https://raw.githubusercontent.com/cilium/hubble/master/stable.txt)"
+  curl -sL --fail --remote-name-all \
+    "https://github.com/cilium/hubble/releases/download/${HVER}/hubble-linux-amd64.tar.gz"
+  sudo tar xzf hubble-linux-amd64.tar.gz -C /usr/local/bin
+  rm -f hubble-linux-amd64.tar.gz
+else
+  log "La CLI de Hubble ya estaba instalada"
+fi
+
 log "Listo"
+echo ""
+echo "Herramientas instaladas:"
+for cmd in docker kubectl kind cilium hubble; do
+  if command -v "$cmd" >/dev/null 2>&1; then echo "  ok   $cmd"; else echo "  FALTA $cmd"; fi
+done
 echo ""
 echo "Siguiente paso:  ./cluster-up.sh"
 echo "Si Docker se acaba de instalar, primero cierra sesion y vuelve a entrar."
