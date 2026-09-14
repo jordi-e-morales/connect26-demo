@@ -21,27 +21,37 @@ VirtualBox. Acéptalo, funciona igual para lo nuestro.
 Abre PowerShell y corre:
 
 ```powershell
-multipass launch --name lab --cpus 12 --memory 14G --disk 40G 24.04
+multipass launch --name lab --cpus 12 --memory 10G --disk 40G 24.04
 ```
 
 Tarda unos minutos la primera vez porque descarga la imagen de Ubuntu.
 
-**Por qué 12 CPUs y 14 GB.** Sin GPU, el modelo corre en CPU dentro del
+**Por qué 12 CPUs y 10 GB.** Sin GPU, el modelo corre en CPU dentro del
 cluster. Con 4 CPUs y 8 GB solo cabía un modelo de 3B, que no sostenía el
-debate, y cada llamada tardaba 2–3 minutos. `qwen2.5:7b` necesita ~6 GB para
-él solo. Referencia: la laptop de desarrollo es un i9-13900H (20 hilos, 32 GB).
-Ajusta a tu máquina, dejando al menos 8 GB para Windows.
+debate, y cada llamada tardaba 2–3 minutos. `qwen2.5:7b` necesita ~6 GB y el
+cluster ~2.5 GB. Referencia: la laptop de desarrollo es un i9-13900H (20 hilos,
+32 GB).
+
+**Ojo con la memoria en Windows.** Hyper-V reserva la RAM de la VM completa
+mientras está encendida, aunque adentro se use poco, y el Administrador de
+tareas no la muestra por proceso. Con 14 GB la laptop llegó a 78 % de uso y se
+congeló. Por eso:
+
+- Deja al menos 16 GB para Windows.
+- **Apaga la VM al terminar de trabajar** (`multipass stop lab`) y enciéndela al
+  empezar (`multipass start lab`). Una VM encendida arranca sola con Windows.
 
 Si la VM ya existe, se cambia así (el cluster kind vuelve solo al arrancar):
 
 ```powershell
 multipass stop lab
 multipass set local.lab.cpus=12
-multipass set local.lab.memory=14G
+multipass set local.lab.memory=10G
 multipass start lab
 ```
 
-Ojo: al reiniciar, **la IP de la VM puede cambiar** (`multipass info lab`).
+Al reiniciar, **la IP de la VM cambia** (`multipass info lab`) y los
+`port-forward` hay que volver a lanzarlos.
 
 ### Paso 3: entra a la máquina
 
