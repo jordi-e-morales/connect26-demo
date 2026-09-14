@@ -21,10 +21,27 @@ VirtualBox. Acéptalo, funciona igual para lo nuestro.
 Abre PowerShell y corre:
 
 ```powershell
-multipass launch --name lab --cpus 4 --memory 8G --disk 40G 24.04
+multipass launch --name lab --cpus 12 --memory 14G --disk 40G 24.04
 ```
 
 Tarda unos minutos la primera vez porque descarga la imagen de Ubuntu.
+
+**Por qué 12 CPUs y 14 GB.** Sin GPU, el modelo corre en CPU dentro del
+cluster. Con 4 CPUs y 8 GB solo cabía un modelo de 3B, que no sostenía el
+debate, y cada llamada tardaba 2–3 minutos. `qwen2.5:7b` necesita ~6 GB para
+él solo. Referencia: la laptop de desarrollo es un i9-13900H (20 hilos, 32 GB).
+Ajusta a tu máquina, dejando al menos 8 GB para Windows.
+
+Si la VM ya existe, se cambia así (el cluster kind vuelve solo al arrancar):
+
+```powershell
+multipass stop lab
+multipass set local.lab.cpus=12
+multipass set local.lab.memory=14G
+multipass start lab
+```
+
+Ojo: al reiniciar, **la IP de la VM puede cambiar** (`multipass info lab`).
 
 ### Paso 3: entra a la máquina
 
