@@ -33,6 +33,50 @@ fi
 echo "Kernel: $(uname -r)"
 
 # ---------------------------------------------------------------------------
+# 0b. DNS de respaldo (solo si hace falta)
+# ---------------------------------------------------------------------------
+# En Windows, Multipass usa el "Default Switch" de Hyper-V, y su servidor DNS
+# a veces deja de contestar aunque la VM sí tenga salida a internet por IP.
+# Sin DNS no funciona apt, ni la descarga de imágenes, ni la de modelos.
+#
+# Por eso: si el DNS actual resuelve, NO tocamos nada (en dCloud puede haber
+# un DNS interno que hay que respetar). Solo si falla, agregamos servidores
+# públicos como respaldo a systemd-resolved, el servicio que resuelve nombres
+# en Ubuntu. "Domains=~." le dice que los use para todos los dominios.
+#
+# Notas de lo que se aprendió probándolo en la VM:
+# - Se verifica con "ahostsv4" (solo IPv4). Las consultas IPv6 siguen
+#   colgándose contra el DNS del switch, pero apt, Docker y Ollama funcionan.
+# - Justo después de reiniciar systemd-resolved la primera consulta puede
+#   tardar; por eso se reintenta antes de declarar error.
+# - No hace falta reiniciar Docker: los nodos de kind reenvían sus consultas
+#   al resolvedor de la VM (127.0.0.53), así que heredan el respaldo.
+dns_ok() {
+  for _ in 1 2 3 4 5; do
+    timeout 5 getent ahostsv4 github.com >/dev/null 2>&1 && return 0
+    sleep 2
+  done
+  return 1
+}
+
+log "Verificando DNS"
+if dns_ok; then
+  echo "El DNS resuelve. No se cambia nada."
+else
+  echo "El DNS no resuelve. Configurando respaldo 1.1.1.1 / 8.8.8.8"
+  sudo mkdir -p /etc/systemd/resolved.conf.d
+  printf '[Resolve]\nDNS=1.1.1.1 8.8.8.8\nFallbackDNS=1.0.0.1 8.8.4.4\nDomains=~.\n' \
+    | sudo tee /etc/systemd/resolved.conf.d/10-respaldo-lab.conf >/dev/null
+  sudo systemctl restart systemd-resolved
+  if dns_ok; then
+    echo "DNS de respaldo funcionando."
+  else
+    echo "ERROR: ni con DNS de respaldo se resuelven nombres. Revisa la red de la VM."
+    exit 1
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # 1. Paquetes base
 # ---------------------------------------------------------------------------
 log "Instalando paquetes base"

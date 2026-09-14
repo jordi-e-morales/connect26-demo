@@ -1,0 +1,6 @@
+# Los scripts y manifiestos se ejecutan en Linux (VM y dCloud).
+# Con core.autocrlf=true en Windows, git los convertiría a CRLF al hacer
+# checkout, y bash falla con "$'\r': command not found". Esto lo impide.
+*.sh    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
