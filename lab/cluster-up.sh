@@ -25,14 +25,29 @@ log "Instalando Cilium como red del cluster"
 # kubeProxyReplacement=true: Cilium reemplaza a kube-proxy usando eBPF.
 # hubble: es el sistema de observabilidad. Sin esto no puedes VER el trafico,
 #         y ver el trafico es la mitad de la demo.
+# envoy.streamIdleTimeoutDurationSeconds: cuando haya politicas L7, el trafico
+#         HTTP entre agentes pasa por Envoy, que corta una peticion tras 300 s
+#         sin actividad. En CPU un agente tarda hasta ~6 min en responder sin
+#         mandar un byte (medido: 345 s el Arbitro), asi que se sube a 30 min.
+#         En GPU sobra, pero no estorba.
+IDLE_ENVOY=1800
 if ! cilium status >/dev/null 2>&1; then
   cilium install \
     --set kubeProxyReplacement=true \
     --set hubble.enabled=true \
     --set hubble.relay.enabled=true \
-    --set hubble.ui.enabled=true
+    --set hubble.ui.enabled=true \
+    --set envoy.streamIdleTimeoutDurationSeconds=$IDLE_ENVOY
 else
   echo "Cilium ya estaba instalado"
+  # Clusters creados antes de este ajuste: aplicarlo sin reinstalar.
+  # `cilium config set` cambia el ConfigMap y reinicia los pods de Cilium.
+  actual=$(kubectl -n kube-system get configmap cilium-config \
+    -o jsonpath='{.data.http-stream-idle-timeout}')
+  if [ "$actual" != "$IDLE_ENVOY" ]; then
+    echo "Ajustando http-stream-idle-timeout de ${actual:-?} a $IDLE_ENVOY"
+    cilium config set http-stream-idle-timeout "$IDLE_ENVOY"
+  fi
 fi
 
 log "Esperando a que Cilium este listo (puede tardar unos minutos)"
@@ -41,4 +56,6 @@ cilium status --wait
 log "Cluster listo"
 kubectl get nodes
 echo ""
-echo "Siguiente paso:  kubectl apply -f $DIR/01-dos-agentes.yaml"
+# Ojo: NO sugerir 01-dos-agentes.yaml. Sus pods de prueba se llaman igual que
+# los componentes reales (p.ej. "orquestador") y los sobrescribirian.
+echo "Siguiente paso: desplegar la demo con deploy/README.md del repo agntcy-mortgage-demo-python"
