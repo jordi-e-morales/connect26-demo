@@ -119,6 +119,21 @@ kubectl exec -n agentes deploy/orquestador -- curl -s http://extractor/
 Si ves el HTML de bienvenida de nginx, **ya está**. Eso es todo lo que había
 que lograr hoy.
 
+> **Este paso ya se superó.** Los componentes reales (orquestador,
+> enriquecedor, investigador, defensor, árbitro y registro) viven en el repo
+> `agntcy-mortgage-demo-python`, carpeta `deploy/`, y usan los mismos nombres
+> en el namespace `agentes`. Si ya aplicaste este archivo, borra solo los pods
+> de prueba **por nombre**:
+>
+> ```bash
+> kubectl -n agentes delete deploy orquestador extractor
+> kubectl -n agentes delete svc extractor
+> ```
+>
+> **No uses** `kubectl delete -f 01-dos-agentes.yaml`: ese archivo también
+> declara el namespace, y borrarlo se lleva a Ollama y al volumen con los
+> modelos descargados.
+
 ---
 
 ## Qué acabas de construir, y por qué importa
@@ -147,11 +162,11 @@ ni nada que bloquear. Con ella, ya tienes dónde colgar los controles.
 ## Comandos que vas a usar todo el tiempo
 
 ```bash
-kubectl get pods -n agentes            # ver los agentes
-kubectl logs -n agentes deploy/extractor   # ver qué dijo un agente
-kubectl describe pod -n agentes <nombre>   # por qué un pod no arranca
-kubectl delete -f 01-dos-agentes.yaml      # borrar los agentes
-kind delete cluster --name agentes         # borrar todo el cluster
+kubectl get pods -n agentes                 # ver los agentes
+kubectl logs -n agentes deploy/investigador     # ver qué dijo un agente
+kubectl describe pod -n agentes <nombre>        # por qué un pod no arranca
+kubectl -n agentes rollout restart deploy/<nombre>  # reiniciar un componente
+kind delete cluster --name agentes              # borrar todo el cluster (y los modelos)
 ```
 
 Si algo se enreda: borra el cluster y corre `./cluster-up.sh` otra vez.
