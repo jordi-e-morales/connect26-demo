@@ -167,10 +167,31 @@ else
   log "La CLI de Hubble ya estaba instalada"
 fi
 
+# ---------------------------------------------------------------------------
+# 7. Helm
+# ---------------------------------------------------------------------------
+# Helm instala "charts": paquetes de manifiestos de Kubernetes con valores
+# configurables. Lo usamos para Tetragon (el control de kernel del Demo 2),
+# que se distribuye asi. Version fija y suma de verificacion comprobada.
+HELM_VER=v4.3.0
+if ! command -v helm >/dev/null 2>&1; then
+  log "Instalando Helm $HELM_VER"
+  tmp=$(mktemp -d)
+  curl -sL --fail -o "$tmp/helm.tgz" "https://get.helm.sh/helm-${HELM_VER}-linux-amd64.tar.gz"
+  curl -sL --fail -o "$tmp/helm.tgz.sha256sum" "https://get.helm.sh/helm-${HELM_VER}-linux-amd64.tar.gz.sha256sum"
+  esperado=$(awk '{print $1}' "$tmp/helm.tgz.sha256sum")
+  echo "$esperado  $tmp/helm.tgz" | sha256sum -c -
+  tar xzf "$tmp/helm.tgz" -C "$tmp"
+  sudo install -m 0755 "$tmp/linux-amd64/helm" /usr/local/bin/helm
+  rm -rf "$tmp"
+else
+  log "Helm ya estaba instalado"
+fi
+
 log "Listo"
 echo ""
 echo "Herramientas instaladas:"
-for cmd in docker kubectl kind cilium hubble; do
+for cmd in docker kubectl kind cilium hubble helm; do
   if command -v "$cmd" >/dev/null 2>&1; then echo "  ok   $cmd"; else echo "  FALTA $cmd"; fi
 done
 echo ""
