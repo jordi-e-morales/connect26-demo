@@ -26,23 +26,28 @@ log "Repositorio de charts de Cilium"
 helm repo add cilium https://helm.cilium.io >/dev/null 2>&1 || true
 helm repo update cilium
 
-actual=$(helm list -n "$NS" -f '^tetragon$' -o json | jq -r '.[0].app_version // empty')
-if [ "$actual" = "$TETRAGON_VER" ]; then
-  log "Tetragon $TETRAGON_VER ya estaba instalado"
-else
-  log "Instalando Tetragon $TETRAGON_VER"
-  # export.mode="": sin el contenedor que copia eventos a stdout (otra imagen
-  #   mas, hubble-export-stdout). Los eventos se leen por gRPC con
-  #   `tetra getevents`, que es lo que usa el observador.
-  # Recursos modestos: la VM tiene 10 GB y Ollama usa ~6.
-  helm upgrade --install tetragon cilium/tetragon \
-    --version "$TETRAGON_VER" \
-    --namespace "$NS" \
-    --set export.mode="" \
-    --set tetragon.resources.requests.memory=128Mi \
-    --set tetragon.resources.limits.memory=512Mi \
-    --wait --timeout 10m
-fi
+# `helm upgrade --install` es idempotente: instala si no existe y, si existe,
+# aplica los valores de abajo (sin reinstalar si nada cambio).
+log "Instalando o actualizando Tetragon $TETRAGON_VER"
+# export.mode="": sin el contenedor que copia eventos a stdout (otra imagen
+#   mas, hubble-export-stdout, que no usamos).
+# tetragon.exportFilePerm=644: Tetragon escribe los eventos en
+#   /var/run/cilium/tetragon/tetragon.log del nodo. Por omision solo root lo
+#   lee (600); con 644 el observador lo lee montandolo en solo lectura y SIN
+#   correr como root. Contiene eventos de procesos de los pods (no secretos).
+#   OJO: el permiso solo se aplica al CREAR el archivo; uno que ya existia se
+#   queda en 600. Por eso el nombre es eventos.log (y no tetragon.log, que se
+#   crea con 600 en la primera instalacion).
+# Recursos modestos: la VM tiene 10 GB y Ollama usa ~6.
+helm upgrade --install tetragon cilium/tetragon \
+  --version "$TETRAGON_VER" \
+  --namespace "$NS" \
+  --set export.mode="" \
+  --set tetragon.exportFilePerm=644 \
+  --set tetragon.exportFilename=eventos.log \
+  --set tetragon.resources.requests.memory=128Mi \
+  --set tetragon.resources.limits.memory=512Mi \
+  --wait --timeout 10m
 
 log "Esperando a que el DaemonSet este listo"
 kubectl -n "$NS" rollout status ds/tetragon --timeout=300s
